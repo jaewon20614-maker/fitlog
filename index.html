@@ -284,7 +284,7 @@ async function init(){
     firebase.initializeApp(firebaseConfig);fdb=firebase.firestore();
     try{await fdb.enablePersistence({synchronizeTabs:true})}catch(e){}
     const cred=await firebase.auth().signInAnonymously();S.me=cred.user.uid;
-  }catch(e){S.authErr=true;render();return}
+  }catch(e){S.authErr=(e&&e.code)||(typeof firebase==="undefined"?"sdk-not-loaded":"unknown");render();return}
   if(S.code)subscribe();else render();
 }
 async function shareCode(){
@@ -314,7 +314,7 @@ function openSettings(){
 }
 
 function vOnboard(){
-  if(S.authErr)return `<section class="onb"><h1>연결하지 못했어요</h1><p>인터넷 연결을 확인하고 다시 열어 주세요. 계속 안 되면 Firebase에서 익명 로그인이 켜져 있는지 확인해 주세요.</p><button class="save" onclick="location.reload()">다시 시도</button></section>`;
+  if(S.authErr)return `<section class="onb"><h1>연결하지 못했어요</h1><p>인터넷 연결을 확인하고 다시 열어 주세요. 계속 안 되면 Firebase에서 익명 로그인이 켜져 있는지 확인해 주세요.</p><p style="font-size:12px">오류 코드: ${esc(S.authErr)}</p><button class="save" onclick="location.reload()">다시 시도</button></section>`;
   if(!S.me)return `<div class="empty">연결하는 중이에요…</div>`;
   const o=S.onb,err=o.err?`<p style="color:var(--danger)">${esc(o.err)}</p>`:"";
   if(o.mode==="join")return `<section class="onb"><h1>커플 코드 입력</h1><p>상대가 보내준 8자리 코드를 입력하세요.</p>
@@ -408,14 +408,16 @@ function vInput(){
   const totOut=per[0].out+per[1].out,totIn=per[0].inc+per[1].inc;
   const amt=+String(f.amount).replace(/\D/g,"")||0;
   const n=together(),ms=nextMilestone(n);
-  const p=x=>`<div class="person ${x.k}"><span class="who">${PEOPLE[x.k]}</span><span class="out num">${won(x.out)}원</span><span class="in num">수입 ${won(x.inc)}원</span></div>`;
+  const sg=v=>(v<0?"-":"")+won(Math.abs(v));
+  const p=x=>{const left=x.inc-x.out;return `<div class="person ${x.k}"><span class="who">${PEOPLE[x.k]} 남은 돈</span><span class="out num" style="${left<0?"color:var(--out)":""}">${sg(left)}원</span><span class="in num">수입 ${won(x.inc)} · 지출 ${won(x.out)}</span></div>`};
   return `<section class="sec dday"><div><div class="names"><span class="j">재식</span><i>♥</i><span class="u">우탄</span></div><div class="big num">함께한 지 <b>${won(n)}</b>일</div></div>
     <div class="meta">2021.04.09부터<br>${ms.days===0?ms.label+" 축하해요":ms.label+"까지 "+ms.days+"일"}</div></section>
   ${BAND}
-  <section class="sec"><div class="label">${mLabel()} 둘이 쓴 돈</div><div class="big num" style="margin:2px 0 16px">${won(totOut)}원</div>
+  <section class="sec"><div class="label">${mLabel()} 둘이 남은 돈</div><div class="big num" style="margin:2px 0 4px;${totIn-totOut<0?"color:var(--out)":""}">${sg(totIn-totOut)}원</div>
+    <div class="tot" style="margin:0 0 16px;justify-content:flex-start;gap:14px"><span>수입 <b class="num" style="color:var(--inc)">+${won(totIn)}</b></span><span>지출 <b class="num" style="color:var(--out)">-${won(totOut)}</b></span></div>
     <div class="vs">${p(per[0])}${p(per[1])}</div>
     ${totOut?`<div class="split" aria-hidden="true">${per.map(x=>`<span style="width:${x.out/totOut*100}%;background:var(--${x.k})"></span>`).join("")}</div>`:""}
-    <div class="tot"><span>${totOut?`재식 ${Math.round(per[0].out/totOut*100)}% · 우탄 ${Math.round(per[1].out/totOut*100)}%`:"아직 지출이 없어요"}</span><span class="inc">수입 <b class="num">${won(totIn)}원</b></span></div>
+    <div class="tot"><span>${totOut?`지출 비율 · 재식 ${Math.round(per[0].out/totOut*100)}% · 우탄 ${Math.round(per[1].out/totOut*100)}%`:"아직 지출이 없어요"}</span></div>
   </section>
   ${BAND}
   <form class="sec form" id="entryForm" autocomplete="off">
